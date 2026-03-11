@@ -13,9 +13,14 @@ import {
 
 const OperatorDashboard = ({ navigation, route }) => {
   const [isOnline, setIsOnline] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [hasTractor, setHasTractor] = useState(
     route.params?.hasTractor ?? false
   );
+
+  // Pulse animation for searching state
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const dotAnim = useRef(new Animated.Value(0)).current;
 
   // Animation value: 0 = No (red), 1 = Yes (green)
   const tractorAnim = useRef(
@@ -30,6 +35,34 @@ const OperatorDashboard = ({ navigation, route }) => {
       tension: 80,
     }).start();
   }, [hasTractor]);
+
+  // Handle online toggle: show 1s searching animation
+  const handleOnlineToggle = () => {
+    const goingOnline = !isOnline;
+    setIsOnline(goingOnline);
+    if (goingOnline) {
+      setIsSearching(true);
+      // Looping pulse while searching
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.15, duration: 500, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+        ])
+      );
+      const dots = Animated.loop(
+        Animated.timing(dotAnim, { toValue: 3, duration: 900, useNativeDriver: false })
+      );
+      pulse.start();
+      dots.start();
+      setTimeout(() => {
+        pulse.stop();
+        dots.stop();
+        pulseAnim.setValue(1);
+        dotAnim.setValue(0);
+        setIsSearching(false);
+      }, 1500);
+    }
+  };
 
   const cardBg = tractorAnim.interpolate({
     inputRange: [0, 1],
@@ -55,6 +88,14 @@ const OperatorDashboard = ({ navigation, route }) => {
   // Grab the passed name
   const userName = route.params?.userName || "Operator";
 
+  // Time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return "Good Morning,";
+    if (hour >= 12 && hour < 17) return "Good Afternoon,";
+    return "Good Evening,";
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -62,22 +103,26 @@ const OperatorDashboard = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
       >
         {/* Profile Header */}
-        {/* Profile Header */}
         <View style={styles.header}>
+          {/* Left: Greeting + Name */}
           <View>
-            <Text style={styles.greeting}>Good Morning,</Text>
-            {/* Use the dynamic variable here */}
+            <Text style={styles.greeting}>{getGreeting()}</Text>
             <Text style={styles.opName}>{userName}</Text>
           </View>
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>
-              {isOnline ? "ONLINE" : "OFFLINE"}
+          {/* Right: Online Toggle */}
+          <View style={styles.onlineRow}>
+            <Text style={[
+              styles.statusText,
+              { color: isOnline ? "#29563A" : "#999" },
+            ]}>
+              {isOnline ? "● ONLINE" : "○ OFFLINE"}
             </Text>
             <Switch
               trackColor={{ false: "#767577", true: "#A3C4A8" }}
               thumbColor={isOnline ? "#29563A" : "#f4f3f4"}
-              onValueChange={() => setIsOnline(!isOnline)}
+              onValueChange={handleOnlineToggle}
               value={isOnline}
+              style={{ marginLeft: 8 }}
             />
           </View>
         </View>
@@ -156,7 +201,39 @@ const OperatorDashboard = ({ navigation, route }) => {
         {/* Alerts Section */}
         <Text style={styles.sectionTitle}>Recent Notifications</Text>
 
-        {!isOnline ? (
+        {isSearching ? (
+          /* Searching animation */
+          <View style={styles.searchingState}>
+            <Animated.View style={[styles.searchingCircle, { transform: [{ scale: pulseAnim }] }]}>
+              <MaterialCommunityIcons name="magnify" size={36} color="#29563A" />
+            </Animated.View>
+            <Text style={styles.searchingText}>Searching for requests...</Text>
+            <View style={styles.dotsRow}>
+              {[0, 1, 2].map((i) => (
+                <Animated.View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    {
+                      opacity: dotAnim.interpolate({
+                        inputRange: [i, i + 0.5, i + 1],
+                        outputRange: [0.3, 1, 0.3],
+                        extrapolate: "clamp",
+                      }),
+                      transform: [{
+                        scale: dotAnim.interpolate({
+                          inputRange: [i, i + 0.5, i + 1],
+                          outputRange: [0.8, 1.4, 0.8],
+                          extrapolate: "clamp",
+                        }),
+                      }],
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
+        ) : !isOnline ? (
           <View style={styles.emptyState}>
             <MaterialCommunityIcons
               name="bell-off-outline"
@@ -209,22 +286,24 @@ const OperatorDashboard = ({ navigation, route }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F2F6F0" },
-  scrollContent: { padding: 20 },
+  scrollContent: { padding: 20, paddingTop: 28 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 25,
   },
-  greeting: { fontSize: 14, color: "#666" },
-  opName: { fontSize: 22, fontWeight: "bold", color: "#29563A" },
-  statusBadge: { alignItems: "center" },
-  statusText: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "#666",
-    marginBottom: 4,
+  onlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
+  statusText: {
+    fontSize: 13,
+    fontWeight: "bold",
+    letterSpacing: 0.5,
+  },
+  greeting: { fontSize: 15, color: "#666", marginBottom: 2 },
+  opName: { fontSize: 24, fontWeight: "bold", color: "#29563A" },
   earningsCard: {
     backgroundColor: "#29563A",
     padding: 25,
@@ -254,6 +333,38 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 10,
     paddingHorizontal: 40,
+  },
+  searchingState: {
+    alignItems: "center",
+    marginTop: 40,
+    paddingVertical: 20,
+  },
+  searchingCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#E8F5E9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+    elevation: 2,
+  },
+  searchingText: {
+    fontSize: 15,
+    color: "#29563A",
+    fontWeight: "600",
+    marginBottom: 16,
+  },
+  dotsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#29563A",
   },
   alertCard: {
     backgroundColor: "#FFF",
