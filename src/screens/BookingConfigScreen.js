@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   SafeAreaView,
   ScrollView,
@@ -19,25 +19,61 @@ const MACHINES = [
     color: "#29563A",
   },
   {
-    id: "mulcher",
-    name: "Mulcher",
-    desc: "Stubble management",
-    price: 1500,
-    icon: "leaf",
-    color: "#D68C45",
+    id: "zero_till_drill",
+    name: "Zero-Till Drill",
+    desc: "No-till seeding",
+    price: 1800,
+    icon: "arrow-down-bold-outline",
+    color: "#1565C0",
   },
   {
-    id: "baler",
-    name: "Baler",
-    desc: "Crop residue baling",
-    price: 2500,
-    icon: "grass",
-    color: "#C2185B",
+    id: "rotavator",
+    name: "Rotavator",
+    desc: "Soil tilling & mixing",
+    price: 1600,
+    icon: "rotate-3d-variant",
+    color: "#6A1B9A",
+  },
+  {
+    id: "raised_bed_planter",
+    name: "Raised Bed Planter",
+    desc: "Raised bed cultivation",
+    price: 2200,
+    icon: "sprout",
+    color: "#2E7D32",
+  },
+  {
+    id: "broadcast_seeder",
+    name: "Broadcast Seeder",
+    desc: "Wide-area spreading",
+    price: 1400,
+    icon: "scatter-plot-outline",
+    color: "#E65100",
+  },
+  {
+    id: "rice_transplanter",
+    name: "Rice Transplanter",
+    desc: "Paddy transplanting",
+    price: 2800,
+    icon: "rice",
+    color: "#00838F",
+  },
+  {
+    id: "other",
+    name: "Other",
+    desc: "Custom requirement",
+    price: 1500,
+    icon: "dots-horizontal-circle-outline",
+    color: "#D68C45",
   },
 ];
 
-const BookingConfigScreen = ({ navigation }) => {
-  const [selectedMachine, setSelectedMachine] = useState(MACHINES[1]);
+const BookingConfigScreen = ({ navigation, route }) => {
+  const machineType = route.params?.machineType;
+  const defaultMachine =
+    MACHINES.find((m) => m.name === machineType) || MACHINES[0];
+
+  const [selectedMachine, setSelectedMachine] = useState(defaultMachine);
   const [acres, setAcres] = useState(3);
 
   const incrementAcres = () => {
@@ -62,34 +98,30 @@ const BookingConfigScreen = ({ navigation }) => {
       </View>
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Select Machine Type</Text>
+        <Text style={styles.sectionTitle}>Selected Machine</Text>
         <View style={styles.cardContainer}>
-          {MACHINES.map((machine) => (
-            <TouchableOpacity
-              key={machine.id}
+          <View style={[styles.machineCard, styles.machineCardSelected]}>
+            <View
               style={[
-                styles.machineCard,
-                selectedMachine.id === machine.id && styles.machineCardSelected,
+                styles.machineIconBg,
+                { backgroundColor: selectedMachine.color + "18" },
               ]}
-              onPress={() => setSelectedMachine(machine)}
             >
-              <View style={styles.machineIconBg}>
-                <MaterialCommunityIcons
-                  name={machine.icon}
-                  size={20}
-                  color={machine.color}
-                />
-              </View>
-              <View style={styles.machineInfo}>
-                <Text style={styles.machineName}>{machine.name}</Text>
-                <Text style={styles.machineDesc}>{machine.desc}</Text>
-              </View>
-              <View style={styles.priceContainer}>
-                <Text style={styles.machinePrice}>₹{machine.price}</Text>
-                <Text style={styles.perAcre}>per acre</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+              <MaterialCommunityIcons
+                name={selectedMachine.icon}
+                size={20}
+                color={selectedMachine.color}
+              />
+            </View>
+            <View style={styles.machineInfo}>
+              <Text style={styles.machineName}>{selectedMachine.name}</Text>
+              <Text style={styles.machineDesc}>{selectedMachine.desc}</Text>
+            </View>
+            <View style={styles.priceContainer}>
+              <Text style={styles.machinePrice}>₹{selectedMachine.price}</Text>
+              <Text style={styles.perAcre}>per acre</Text>
+            </View>
+          </View>
         </View>
 
         <Text style={styles.sectionTitle}>Number of Acres</Text>
@@ -160,7 +192,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
   container: { flex: 1, paddingHorizontal: 20 },
 
-  // Adjusted for compactness
   sectionTitle: {
     fontSize: 15,
     fontWeight: "bold",
@@ -173,32 +204,36 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 8,
     elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
   },
 
   machineCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 10, // Slightly increased padding for a better look
+    padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "transparent", // Invisible border prevents the card from "jumping" when selected
-    borderBottomColor: "#F0F0F0", // Keeps the clean divider line
-    marginBottom: 4, // Gives the bottom border room to breathe so it doesn't get clipped
+    borderColor: "transparent",
+    borderBottomColor: "#F0F0F0",
+    marginBottom: 4,
   },
 
   machineCardSelected: {
     backgroundColor: "#E8F5E9",
     borderColor: "#29563A",
-    borderBottomColor: "#29563A", // <-- This is the magic line that fixes the bottom border!
+    borderBottomColor: "#29563A",
   },
   machineIconBg: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#F5F5F5",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
+    marginRight: 12,
   },
   machineInfo: { flex: 1 },
   machineName: { fontSize: 15, fontWeight: "bold", color: "#333" },
@@ -247,6 +282,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   estimateRow: {
     flexDirection: "row",
