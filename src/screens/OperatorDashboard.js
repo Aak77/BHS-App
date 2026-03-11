@@ -1,6 +1,7 @@
 import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,6 +13,44 @@ import {
 
 const OperatorDashboard = ({ navigation, route }) => {
   const [isOnline, setIsOnline] = useState(false);
+  const [hasTractor, setHasTractor] = useState(
+    route.params?.hasTractor ?? false
+  );
+
+  // Animation value: 0 = No (red), 1 = Yes (green)
+  const tractorAnim = useRef(
+    new Animated.Value(route.params?.hasTractor ? 1 : 0)
+  ).current;
+
+  useEffect(() => {
+    Animated.spring(tractorAnim, {
+      toValue: hasTractor ? 1 : 0,
+      useNativeDriver: false,
+      friction: 6,
+      tension: 80,
+    }).start();
+  }, [hasTractor]);
+
+  const cardBg = tractorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["#FFF5F5", "#F0FAF1"],
+  });
+  const cardBorder = tractorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["#FFCDD2", "#C8E6C9"],
+  });
+  const noColor = tractorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["#E53935", "#AAA"],
+  });
+  const yesColor = tractorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["#AAA", "#29563A"],
+  });
+  const iconColor = tractorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["#E53935", "#29563A"],
+  });
 
   // Grab the passed name
   const userName = route.params?.userName || "Operator";
@@ -79,6 +118,40 @@ const OperatorDashboard = ({ navigation, route }) => {
             </View>
           </View>
         </TouchableOpacity>
+
+        {/* Tractor Toggle Card */}
+        <Animated.View
+          style={[
+            styles.tractorCard,
+            { backgroundColor: cardBg, borderColor: cardBorder },
+          ]}
+        >
+          <View style={styles.tractorCardLeft}>
+            <Animated.Text style={{ marginRight: 12 }}>
+              <FontAwesome5
+                name="tractor"
+                size={20}
+                color={hasTractor ? "#29563A" : "#E53935"}
+              />
+            </Animated.Text>
+            <Text style={styles.tractorLabel}>Tractor?</Text>
+          </View>
+          <View style={styles.tractorToggleRow}>
+            <Animated.Text style={[styles.tractorToggleText, { color: noColor }]}>
+              No
+            </Animated.Text>
+            <Switch
+              trackColor={{ false: "#FFCDD2", true: "#A5D6A7" }}
+              thumbColor={hasTractor ? "#29563A" : "#E53935"}
+              onValueChange={setHasTractor}
+              value={hasTractor}
+              style={{ marginHorizontal: 8 }}
+            />
+            <Animated.Text style={[styles.tractorToggleText, { color: yesColor }]}>
+              Yes
+            </Animated.Text>
+          </View>
+        </Animated.View>
 
         {/* Alerts Section */}
         <Text style={styles.sectionTitle}>Recent Notifications</Text>
@@ -227,6 +300,37 @@ const styles = StyleSheet.create({
     borderColor: "#A3C4A8",
   },
   supportBtnText: { color: "#29563A", fontWeight: "bold", fontSize: 16 },
+  tractorCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 16,
+    elevation: 2,
+    borderWidth: 1.5,
+  },
+  tractorCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  tractorLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+  },
+  tractorToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  tractorToggleText: {
+    fontSize: 15,
+    fontWeight: "bold",
+  },
+  tractorActive: {
+    color: "#29563A",
+    fontWeight: "bold",
+  },
 });
 
 export default OperatorDashboard;
