@@ -18,6 +18,7 @@ import {
 const OperatorLoginScreen = ({ navigation }) => {
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
   const [licenseImage, setLicenseImage] = useState(null);
 
   const pickImage = async () => {
@@ -81,6 +82,10 @@ const OperatorLoginScreen = ({ navigation }) => {
       Alert.alert("Missing Info", "Please enter a valid 10-digit phone number.");
       return;
     }
+    if (!licenseNumber.trim()) {
+      Alert.alert("Missing Info", "Please enter your license number.");
+      return;
+    }
     if (!licenseImage) {
       Alert.alert("Missing Info", "Please upload your license image.");
       return;
@@ -89,11 +94,12 @@ const OperatorLoginScreen = ({ navigation }) => {
     navigation.navigate("OperatorDashboard", {
       userName: name,
       phone: phoneNumber,
-      license: licenseImage,
+      licenseNumber: licenseNumber,
+      licenseImage: licenseImage,
     });
   };
 
-  const isFormValid = name.trim() && phoneNumber.length === 10 && licenseImage;
+  const isFormValid = name.trim() && phoneNumber.length === 10 && licenseNumber.trim() && licenseImage;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -155,6 +161,25 @@ const OperatorLoginScreen = ({ navigation }) => {
               maxLength={10}
               value={phoneNumber}
               onChangeText={setPhoneNumber}
+            />
+          </View>
+
+          {/* License Number Field */}
+          <Text style={styles.label}>License Number</Text>
+          <View style={styles.inputWrapper}>
+            <MaterialCommunityIcons
+              name="card-account-details-outline"
+              size={22}
+              color="#29563A"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. DL-1420110012345"
+              placeholderTextColor="#999"
+              autoCapitalize="characters"
+              value={licenseNumber}
+              onChangeText={setLicenseNumber}
             />
           </View>
 

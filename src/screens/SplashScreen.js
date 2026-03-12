@@ -21,7 +21,7 @@ const SplashScreen = ({ navigation }) => {
       }),
     ]).start(() => {
       setTimeout(() => {
-        navigation.replace("Login");
+        navigation.replace("RoleSelection");
       }, 1000);
     });
   }, []);

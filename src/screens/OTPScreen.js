@@ -8,13 +8,11 @@ import {
 } from "react-native";
 
 const OTPScreen = ({ route, navigation }) => {
-  const { phone } = route.params; // Grabs the phone number from the previous screen
+  const { phone, userName } = route.params;
   const [otp, setOtp] = useState("");
 
   const handleVerify = () => {
-    // In a real app, you'd verify the OTP here.
-    // For now, let's just go to the Dashboard (we will create this next).
-    navigation.navigate("Dashboard");
+    navigation.navigate("FarmerBooking", { userName: userName || "Guest" });
   };
 
   return (
