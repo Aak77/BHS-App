@@ -48,7 +48,10 @@ const FarmerBookingScreen = ({ navigation, route }) => {
             <Text style={styles.userName}>{userName}</Text>
             <Text style={styles.userPhone}>+91 9876543210</Text>
           </View>
-          <TouchableOpacity style={styles.profileIcon}>
+          <TouchableOpacity 
+            style={styles.profileIcon}
+            onPress={() => navigation.navigate("RoleSelection")}
+          >
             <Feather name="log-out" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>

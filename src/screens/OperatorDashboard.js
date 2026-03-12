@@ -108,6 +108,13 @@ const OperatorDashboard = ({ navigation, route }) => {
           <View>
             <Text style={styles.greeting}>{getGreeting()}</Text>
             <Text style={styles.opName}>{userName}</Text>
+            <TouchableOpacity 
+              style={styles.logoutButton} 
+              onPress={() => navigation.navigate("RoleSelection")}
+            >
+              <MaterialCommunityIcons name="logout" size={16} color="#E53935" />
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
           </View>
           {/* Right: Online Toggle */}
           <View style={styles.onlineRow}>
@@ -304,6 +311,22 @@ const styles = StyleSheet.create({
   },
   greeting: { fontSize: 15, color: "#666", marginBottom: 2 },
   opName: { fontSize: 24, fontWeight: "bold", color: "#29563A" },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: "#FFEBEE",
+    alignSelf: "flex-start",
+  },
+  logoutText: {
+    color: "#E53935",
+    fontSize: 12,
+    fontWeight: "bold",
+    marginLeft: 4,
+  },
   earningsCard: {
     backgroundColor: "#29563A",
     padding: 25,
