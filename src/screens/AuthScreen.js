@@ -9,7 +9,7 @@ import {
   View
 } from 'react-native';
 
-const BACKEND_URL = 'http://localhost:5000/api'; // Backend URL with /api prefix
+const BACKEND_URL = 'https://a283-114-143-61-242.ngrok-free.app/api'; // Backend URL with /api prefix for ngrok mobile testing
 
 const AuthScreen = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -60,8 +60,8 @@ const AuthScreen = ({ navigation }) => {
       });
       const data = await response.json();
       if (data.success) {
-        // Pass real name and phone to Dashboard
-        navigation.navigate('Dashboard', { userName: data.user?.name || name, phone: data.user?.phone || formattedPhone });
+        // Redirect to FarmerBookingScreen after verification
+        navigation.navigate('FarmerBooking', { userName: data.user?.name || name, phone: data.user?.phone || formattedPhone });
       } else {
         alert(data.message || 'OTP verification failed');
       }
