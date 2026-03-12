@@ -16,6 +16,8 @@ import {
   View,
 } from "react-native";
 
+const BACKEND_URL = "https://97d9-114-143-61-242.ngrok-free.app/api";
+
 const OperatorLoginScreen = ({ navigation }) => {
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -23,6 +25,7 @@ const OperatorLoginScreen = ({ navigation }) => {
   const [licenseImage, setLicenseImage] = useState(null);
   const [licenseFileType, setLicenseFileType] = useState(null);
   const [licenseFileName, setLicenseFileName] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const pickDocument = async () => {
     try {
@@ -30,7 +33,6 @@ const OperatorLoginScreen = ({ navigation }) => {
         type: ["image/*", "application/pdf"],
         copyToCacheDirectory: true,
       });
-
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setLicenseImage(result.assets[0].uri);
         setLicenseFileType(result.assets[0].mimeType);
@@ -44,22 +46,17 @@ const OperatorLoginScreen = ({ navigation }) => {
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(
-        "Permission Required",
-        "Please allow camera access to take a photo of your license."
-      );
+      Alert.alert("Permission Required", "Please allow camera access to take a photo of your license.");
       return;
     }
-
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
     });
-
     if (!result.canceled) {
       setLicenseImage(result.assets[0].uri);
-      setLicenseFileType("image");
+      setLicenseFileType("image/jpeg");
       setLicenseFileName("camera_photo.jpg");
     }
   };
@@ -72,7 +69,7 @@ const OperatorLoginScreen = ({ navigation }) => {
     ]);
   };
 
-  const handleContinue = () => {
+  const handleRegister = async () => {
     if (!name.trim()) {
       Alert.alert("Missing Info", "Please enter your name.");
       return;
@@ -90,15 +87,53 @@ const OperatorLoginScreen = ({ navigation }) => {
       return;
     }
 
-    navigation.navigate("OperatorDashboard", {
-      userName: name,
-      phone: phoneNumber,
-      licenseNumber: licenseNumber,
-      licenseImage: licenseImage,
-    });
+    setLoading(true);
+    try {
+      const isPdf =
+        (licenseFileType && licenseFileType.includes("pdf")) ||
+        (licenseFileName && licenseFileName.toLowerCase().endsWith(".pdf"));
+
+      const formData = new FormData();
+      formData.append("name", name.trim());
+      formData.append("phone", `+91${phoneNumber}`);
+      formData.append("licenseNumber", licenseNumber.trim());
+      formData.append("licenseFile", {
+        uri: licenseImage,
+        type: isPdf ? "application/pdf" : "image/jpeg",
+        name: licenseFileName || "license.jpg",
+      });
+
+      const response = await fetch(`${BACKEND_URL}/auth/operator-register`, {
+        method: "POST",
+        headers: { "Content-Type": "multipart/form-data" },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        navigation.navigate("OperatorDashboard", {
+          userName: data.data?.name || name,
+          phone: data.data?.phone || `+91${phoneNumber}`,
+          token: data.token,
+          operatorId: data.data?.id,
+        });
+      } else {
+        Alert.alert("Registration Failed", data.message || "Please try again.");
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Network Error", "Could not connect to server. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const isFormValid = name.trim() && phoneNumber.length === 10 && licenseNumber.trim() && licenseImage;
+  const isFormValid =
+    name.trim() &&
+    phoneNumber.length === 10 &&
+    licenseNumber.trim() &&
+    licenseImage;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -112,16 +147,10 @@ const OperatorLoginScreen = ({ navigation }) => {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color="#FFFFFF"
-            />
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Operator Registration</Text>
-          <Text style={styles.headerSubtitle}>
-            Enter your details to get started
-          </Text>
+          <Text style={styles.headerSubtitle}>Enter your details to get started</Text>
         </View>
 
         {/* Form */}
@@ -130,15 +159,10 @@ const OperatorLoginScreen = ({ navigation }) => {
           contentContainerStyle={styles.formContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Name Field */}
+          {/* Name */}
           <Text style={styles.label}>Full Name</Text>
           <View style={styles.inputWrapper}>
-            <MaterialCommunityIcons
-              name="account-outline"
-              size={22}
-              color="#29563A"
-              style={styles.inputIcon}
-            />
+            <MaterialCommunityIcons name="account-outline" size={22} color="#29563A" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="e.g. Gurpreet Singh"
@@ -148,7 +172,7 @@ const OperatorLoginScreen = ({ navigation }) => {
             />
           </View>
 
-          {/* Phone Number Field */}
+          {/* Phone */}
           <Text style={styles.label}>Phone Number</Text>
           <View style={styles.inputWrapper}>
             <Text style={styles.prefix}>+91</Text>
@@ -163,15 +187,10 @@ const OperatorLoginScreen = ({ navigation }) => {
             />
           </View>
 
-          {/* License Number Field */}
+          {/* License Number */}
           <Text style={styles.label}>License Number</Text>
           <View style={styles.inputWrapper}>
-            <MaterialCommunityIcons
-              name="card-account-details-outline"
-              size={22}
-              color="#29563A"
-              style={styles.inputIcon}
-            />
+            <MaterialCommunityIcons name="card-account-details-outline" size={22} color="#29563A" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="e.g. DL-1420110012345"
@@ -191,65 +210,46 @@ const OperatorLoginScreen = ({ navigation }) => {
           >
             {licenseImage ? (
               <View style={styles.imagePreviewContainer}>
-                {(licenseFileType && licenseFileType.includes("pdf")) || (licenseFileName && licenseFileName.toLowerCase().endsWith(".pdf")) ? (
-                  <View style={[styles.imagePreview, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#EBF3EC', borderWidth: 1, borderColor: '#C8E6C9' }]}>
+                {(licenseFileType && licenseFileType.includes("pdf")) ||
+                (licenseFileName && licenseFileName.toLowerCase().endsWith(".pdf")) ? (
+                  <View style={[styles.imagePreview, { justifyContent: "center", alignItems: "center", backgroundColor: "#EBF3EC", borderWidth: 1, borderColor: "#C8E6C9" }]}>
                     <MaterialCommunityIcons name="file-pdf-box" size={64} color="#D32F2F" />
-                    <Text style={{ marginTop: 12, color: '#29563A', fontWeight: 'bold', paddingHorizontal: 20, textAlign: 'center' }} numberOfLines={2}>
+                    <Text style={{ marginTop: 12, color: "#29563A", fontWeight: "bold", paddingHorizontal: 20, textAlign: "center" }} numberOfLines={2}>
                       {licenseFileName || "PDF Document Selected"}
                     </Text>
                   </View>
                 ) : (
-                  <Image
-                    source={{ uri: licenseImage }}
-                    style={styles.imagePreview}
-                  />
+                  <Image source={{ uri: licenseImage }} style={styles.imagePreview} />
                 )}
                 <TouchableOpacity
                   style={styles.removeImageButton}
-                  onPress={() => {
-                    setLicenseImage(null);
-                    setLicenseFileType(null);
-                    setLicenseFileName("");
-                  }}
+                  onPress={() => { setLicenseImage(null); setLicenseFileType(null); setLicenseFileName(""); }}
                 >
-                  <MaterialCommunityIcons
-                    name="close-circle"
-                    size={28}
-                    color="#D32F2F"
-                  />
+                  <MaterialCommunityIcons name="close-circle" size={28} color="#D32F2F" />
                 </TouchableOpacity>
                 <Text style={styles.tapToChange}>Tap to change</Text>
               </View>
             ) : (
               <View style={styles.uploadPlaceholder}>
                 <View style={styles.uploadIconCircle}>
-                  <MaterialCommunityIcons
-                    name="camera-plus-outline"
-                    size={36}
-                    color="#29563A"
-                  />
+                  <MaterialCommunityIcons name="camera-plus-outline" size={36} color="#29563A" />
                 </View>
-                <Text style={styles.uploadText}>
-                  Upload License Image
-                </Text>
-                <Text style={styles.uploadSubText}>
-                  Take a photo or choose from gallery
-                </Text>
+                <Text style={styles.uploadText}>Upload License Image</Text>
+                <Text style={styles.uploadSubText}>Take a photo or choose from gallery</Text>
               </View>
             )}
           </TouchableOpacity>
 
-          {/* Continue Button */}
+          {/* Register Button */}
           <TouchableOpacity
-            style={[
-              styles.continueButton,
-              !isFormValid && styles.disabledButton,
-            ]}
-            onPress={handleContinue}
-            disabled={!isFormValid}
+            style={[styles.continueButton, (!isFormValid || loading) && styles.disabledButton]}
+            onPress={handleRegister}
+            disabled={!isFormValid || loading}
             activeOpacity={0.8}
           >
-            <Text style={styles.continueText}>Continue →</Text>
+            <Text style={styles.continueText}>
+              {loading ? "Registering..." : "Register as Operator →"}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -258,153 +258,52 @@ const OperatorLoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#29563A",
-  },
-  container: {
-    flex: 1,
-  },
-  header: {
-    padding: 24,
-    paddingTop: 16,
-    paddingBottom: 30,
-  },
+  safeArea: { flex: 1, backgroundColor: "#29563A" },
+  container: { flex: 1 },
+  header: { padding: 24, paddingTop: 16, paddingBottom: 30 },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
+    justifyContent: "center", alignItems: "center", marginBottom: 16,
   },
-  headerTitle: {
-    color: "#FFFFFF",
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 6,
-  },
-  headerSubtitle: {
-    color: "#E8F5E9",
-    fontSize: 16,
-  },
-  formContainer: {
-    flex: 1,
-    backgroundColor: "#F2F6F0",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-  },
-  formContent: {
-    padding: 24,
-    paddingTop: 28,
-    paddingBottom: 40,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 10,
-    marginTop: 8,
-  },
+  headerTitle: { color: "#FFFFFF", fontSize: 28, fontWeight: "bold", marginBottom: 6 },
+  headerSubtitle: { color: "#E8F5E9", fontSize: 16 },
+  formContainer: { flex: 1, backgroundColor: "#F2F6F0", borderTopLeftRadius: 30, borderTopRightRadius: 30 },
+  formContent: { padding: 24, paddingTop: 28, paddingBottom: 40 },
+  label: { fontSize: 16, fontWeight: "600", color: "#333", marginBottom: 10, marginTop: 8 },
   inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    marginBottom: 20,
-    height: 56,
+    flexDirection: "row", alignItems: "center", backgroundColor: "#FFFFFF",
+    borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 12,
+    paddingHorizontal: 14, marginBottom: 20, height: 56,
   },
-  inputIcon: {
-    marginRight: 10,
-  },
+  inputIcon: { marginRight: 10 },
   prefix: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-    marginRight: 8,
-    paddingRight: 8,
-    borderRightWidth: 1,
-    borderRightColor: "#E0E0E0",
+    fontSize: 16, fontWeight: "bold", color: "#333",
+    marginRight: 8, paddingRight: 8,
+    borderRightWidth: 1, borderRightColor: "#E0E0E0",
   },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: "#333",
-    height: "100%",
-  },
+  input: { flex: 1, fontSize: 16, color: "#333", height: "100%" },
   uploadContainer: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1.5,
-    borderColor: "#C8E6C9",
-    borderRadius: 16,
-    borderStyle: "dashed",
-    marginBottom: 28,
-    overflow: "hidden",
+    backgroundColor: "#FFFFFF", borderWidth: 1.5, borderColor: "#C8E6C9",
+    borderRadius: 16, borderStyle: "dashed", marginBottom: 28, overflow: "hidden",
   },
-  uploadPlaceholder: {
-    alignItems: "center",
-    paddingVertical: 36,
-  },
+  uploadPlaceholder: { alignItems: "center", paddingVertical: 36 },
   uploadIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#EBF3EC",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 14,
+    width: 72, height: 72, borderRadius: 36, backgroundColor: "#EBF3EC",
+    justifyContent: "center", alignItems: "center", marginBottom: 14,
   },
-  uploadText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#29563A",
-    marginBottom: 4,
-  },
-  uploadSubText: {
-    fontSize: 13,
-    color: "#888",
-  },
-  imagePreviewContainer: {
-    alignItems: "center",
-    position: "relative",
-  },
-  imagePreview: {
-    width: "100%",
-    height: 200,
-    borderRadius: 14,
-    resizeMode: "cover",
-  },
-  removeImageButton: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-  },
-  tapToChange: {
-    fontSize: 13,
-    color: "#888",
-    paddingVertical: 8,
-  },
+  uploadText: { fontSize: 16, fontWeight: "600", color: "#29563A", marginBottom: 4 },
+  uploadSubText: { fontSize: 13, color: "#888" },
+  imagePreviewContainer: { alignItems: "center", position: "relative" },
+  imagePreview: { width: "100%", height: 200, borderRadius: 14, resizeMode: "cover" },
+  removeImageButton: { position: "absolute", top: 8, right: 8, backgroundColor: "#FFFFFF", borderRadius: 14 },
+  tapToChange: { fontSize: 13, color: "#888", paddingVertical: 8 },
   continueButton: {
-    backgroundColor: "#29563A",
-    padding: 18,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 4,
+    backgroundColor: "#29563A", padding: 18, borderRadius: 12,
+    alignItems: "center", marginTop: 4,
   },
-  disabledButton: {
-    backgroundColor: "#A3C4A8",
-  },
-  continueText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+  disabledButton: { backgroundColor: "#A3C4A8" },
+  continueText: { color: "#FFFFFF", fontSize: 18, fontWeight: "bold" },
 });
 
 export default OperatorLoginScreen;
