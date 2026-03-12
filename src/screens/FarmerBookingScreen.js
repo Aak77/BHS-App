@@ -60,11 +60,7 @@ const FarmerBookingScreen = ({ navigation, route }) => {
             <Text style={styles.statNumber}>3</Text>
             <Text style={styles.statLabel}>Bookings</Text>
           </View>
-          <View style={styles.statBox}>
-            <Ionicons name="star" size={24} color="#D68C45" />
-            <Text style={styles.statNumber}>4.8</Text>
-            <Text style={styles.statLabel}>Avg Rating</Text>
-          </View>
+
           <View style={styles.statBox}>
             <MaterialCommunityIcons name="texture" size={24} color="#29563A" />
             <Text style={styles.statNumber}>24</Text>
@@ -204,37 +200,7 @@ const FarmerBookingScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Price Guide */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>
-            <FontAwesome5 name="money-bill-wave" size={16} color="#666" /> Price
-            Guide (per acre)
-          </Text>
 
-          <View style={[styles.priceRow, { backgroundColor: "#E8F5E9" }]}>
-            <View style={styles.machineInfo}>
-              <MaterialCommunityIcons name="seed" size={20} color="#29563A" />
-              <Text style={styles.machineName}>Happy Seeder</Text>
-            </View>
-            <Text style={styles.machinePrice}>₹2,000</Text>
-          </View>
-
-          <View style={[styles.priceRow, { backgroundColor: "#FFF3E0" }]}>
-            <View style={styles.machineInfo}>
-              <MaterialCommunityIcons name="leaf" size={20} color="#D68C45" />
-              <Text style={styles.machineName}>Mulcher</Text>
-            </View>
-            <Text style={styles.machinePrice}>₹1,500</Text>
-          </View>
-
-          <View style={[styles.priceRow, { backgroundColor: "#FCE4EC" }]}>
-            <View style={styles.machineInfo}>
-              <MaterialCommunityIcons name="grass" size={20} color="#C2185B" />
-              <Text style={styles.machineName}>Baler</Text>
-            </View>
-            <Text style={styles.machinePrice}>₹2,500</Text>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
