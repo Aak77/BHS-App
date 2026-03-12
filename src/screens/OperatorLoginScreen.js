@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
 import {
   Alert,
@@ -20,27 +21,23 @@ const OperatorLoginScreen = ({ navigation }) => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
   const [licenseImage, setLicenseImage] = useState(null);
+  const [licenseFileType, setLicenseFileType] = useState(null);
+  const [licenseFileName, setLicenseFileName] = useState("");
 
-  const pickImage = async () => {
-    // Request permission
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission Required",
-        "Please allow access to your photo library to upload your license."
-      );
-      return;
-    }
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "application/pdf"],
+        copyToCacheDirectory: true,
+      });
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      setLicenseImage(result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setLicenseImage(result.assets[0].uri);
+        setLicenseFileType(result.assets[0].mimeType);
+        setLicenseFileName(result.assets[0].name);
+      }
+    } catch (error) {
+      console.log("Error picking document: ", error);
     }
   };
 
@@ -62,13 +59,15 @@ const OperatorLoginScreen = ({ navigation }) => {
 
     if (!result.canceled) {
       setLicenseImage(result.assets[0].uri);
+      setLicenseFileType("image");
+      setLicenseFileName("camera_photo.jpg");
     }
   };
 
   const handleUploadPress = () => {
     Alert.alert("Upload License", "Choose an option", [
       { text: "Take Photo", onPress: takePhoto },
-      { text: "Choose from Gallery", onPress: pickImage },
+      { text: "Choose File (PDF/Image)", onPress: pickDocument },
       { text: "Cancel", style: "cancel" },
     ]);
   };
@@ -192,13 +191,26 @@ const OperatorLoginScreen = ({ navigation }) => {
           >
             {licenseImage ? (
               <View style={styles.imagePreviewContainer}>
-                <Image
-                  source={{ uri: licenseImage }}
-                  style={styles.imagePreview}
-                />
+                {(licenseFileType && licenseFileType.includes("pdf")) || (licenseFileName && licenseFileName.toLowerCase().endsWith(".pdf")) ? (
+                  <View style={[styles.imagePreview, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#EBF3EC', borderWidth: 1, borderColor: '#C8E6C9' }]}>
+                    <MaterialCommunityIcons name="file-pdf-box" size={64} color="#D32F2F" />
+                    <Text style={{ marginTop: 12, color: '#29563A', fontWeight: 'bold', paddingHorizontal: 20, textAlign: 'center' }} numberOfLines={2}>
+                      {licenseFileName || "PDF Document Selected"}
+                    </Text>
+                  </View>
+                ) : (
+                  <Image
+                    source={{ uri: licenseImage }}
+                    style={styles.imagePreview}
+                  />
+                )}
                 <TouchableOpacity
                   style={styles.removeImageButton}
-                  onPress={() => setLicenseImage(null)}
+                  onPress={() => {
+                    setLicenseImage(null);
+                    setLicenseFileType(null);
+                    setLicenseFileName("");
+                  }}
                 >
                   <MaterialCommunityIcons
                     name="close-circle"
