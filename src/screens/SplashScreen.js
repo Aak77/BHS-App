@@ -29,7 +29,7 @@ const SplashScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <Animated.Image
-        source={require("../../assets/smart_seed_logo.png")}
+        source={require("../../assets/smart_seed_app.png")}
         style={[
           styles.logo,
           { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
@@ -46,7 +46,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  logo: { width: width * 0.8, height: width * 0.5, resizeMode: "contain" },
+  logo: { 
+    width: width * 1.2, 
+    height: width * 1.2, 
+    resizeMode: "contain",
+    backgroundColor: "#FFFFFF" 
+  },
 });
 
 export default SplashScreen;
