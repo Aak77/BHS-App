@@ -1,5 +1,4 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import React from "react";
 
 // Import all your screens
 import AuthScreen from "../screens/AuthScreen";
