@@ -104,6 +104,19 @@ io.on('connection', (socket) => {
     console.log(`✅ Operator completed job tracking for room: ${roomName}`);
   });
 
+  // 6. Operator changes job status (e.g. headed_to_farm, reached_farm)
+  socket.on('operator:status_update', (data) => {
+    const { bookingId, status } = data;
+    const roomName = `booking_${bookingId}`;
+
+    io.to(roomName).emit('job_status_update', {
+      bookingId,
+      status,
+      timestamp: Date.now()
+    });
+    console.log(`🔄 Status Update [${roomName}]: ${status}`);
+  });
+
   // Handle disconnections
   socket.on('disconnect', () => {
     console.log('🔴 Client disconnected:', socket.id);

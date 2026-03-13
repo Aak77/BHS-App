@@ -12,21 +12,39 @@ import {
   View,
 } from "react-native";
 
-const IncomingRequestScreen = ({ navigation }) => {
+const IncomingRequestScreen = ({ navigation, route }) => {
+  const { booking } = route.params || {};
   const [timeLeft, setTimeLeft] = useState(60);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Countdown Timer Logic
   useEffect(() => {
-    if (timeLeft === 0) {
-      navigation.goBack(); // Auto-reject if time runs out
+    if (timeLeft === 0 && !isProcessing) {
+      handleDecline(); // Auto-reject if time runs out
       return;
     }
     const timerId = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
     return () => clearInterval(timerId);
-  }, [timeLeft, navigation]);
+  }, [timeLeft, navigation, isProcessing]);
 
-  const handleAccept = () => {
-    navigation.navigate("JobInProgress");
+  const handleAccept = async () => {
+    setIsProcessing(true);
+    if (booking?.id) {
+       const { updateBookingStatus } = require("../services/firestore");
+       await updateBookingStatus(booking.id, "accepted");
+       navigation.navigate("JobInProgress", { bookingId: booking.id, booking });
+    } else {
+       navigation.goBack();
+    }
+  };
+
+  const handleDecline = async () => {
+    setIsProcessing(true);
+    if (booking?.id) {
+       const { updateBookingStatus } = require("../services/firestore");
+       await updateBookingStatus(booking.id, "rejected");
+    }
+    navigation.goBack();
   };
 
   return (
@@ -45,8 +63,8 @@ const IncomingRequestScreen = ({ navigation }) => {
               <Ionicons name="person" size={24} color="#29563A" />
             </View>
             <View>
-              <Text style={styles.farmerName}>Rajesh Kumar</Text>
-              <Text style={styles.distance}>7.5 km away</Text>
+              <Text style={styles.farmerName}>{booking?.farmerName || "Local Farmer"}</Text>
+              <Text style={styles.distance}>Nearby matching your radius</Text>
             </View>
           </View>
 
@@ -55,17 +73,17 @@ const IncomingRequestScreen = ({ navigation }) => {
           <View style={styles.jobSpecs}>
             <View style={styles.specItem}>
               <FontAwesome5 name="tractor" size={18} color="#666" />
-              <Text style={styles.specText}>Happy Seeder</Text>
+              <Text style={styles.specText}>{booking?.machineType || "Machine"}</Text>
             </View>
             <View style={styles.specItem}>
               <MaterialCommunityIcons name="texture" size={18} color="#666" />
-              <Text style={styles.specText}>5 Acres</Text>
+              <Text style={styles.specText}>{booking?.acres || 0} Acres</Text>
             </View>
           </View>
 
           <View style={styles.earningsBox}>
             <Text style={styles.earningsLabel}>Estimated Earnings</Text>
-            <Text style={styles.earningsAmount}>₹2,200</Text>
+            <Text style={styles.earningsAmount}>₹{booking?.totalPrice?.toLocaleString() || "0"}</Text>
           </View>
         </View>
 
@@ -73,13 +91,15 @@ const IncomingRequestScreen = ({ navigation }) => {
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={[styles.actionBtn, styles.declineBtn]}
-            onPress={() => navigation.goBack()}
+            onPress={handleDecline}
+            disabled={isProcessing}
           >
             <Text style={styles.declineText}>Decline</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, styles.acceptBtn]}
             onPress={handleAccept}
+            disabled={isProcessing}
           >
             <Text style={styles.acceptText}>ACCEPT JOB</Text>
           </TouchableOpacity>

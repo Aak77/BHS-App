@@ -65,7 +65,7 @@ const OperatorDashboard = ({ navigation, route }) => {
       socket.emit("operator:online", { uid: user.uid, name: userName });
 
       // 2. Start tracking GPS location
-      const sub = await startWatchingLocation((location) => {
+      const sub = await startWatchingLocation(async (location) => {
         // Broadcast location to server every time it changes
         socket.emit("operator:location_update", {
           latitude: location.coords.latitude,
@@ -73,6 +73,15 @@ const OperatorDashboard = ({ navigation, route }) => {
           heading: location.coords.heading || 0,
           speed: location.coords.speed || 0,
         });
+        
+        // Ensure Database always has latest operator location for Farmer discovery 
+        if (user?.uid) {
+           const { updateUserLocation } = require("../services/firestore");
+           await updateUserLocation(user.uid, {
+             latitude: location.coords.latitude,
+             longitude: location.coords.longitude
+           });
+        }
       });
       setLocationSub(sub);
 
@@ -108,6 +117,24 @@ const OperatorDashboard = ({ navigation, route }) => {
       disconnectSocket();
     }
   };
+
+  // Real-time booking observer
+  useEffect(() => {
+    let unsubscribeReq;
+    if (isOnline && user?.uid) {
+      const { observeIncomingBookings } = require("../services/firestore");
+      unsubscribeReq = observeIncomingBookings(user.uid, (bookings) => {
+        if (bookings && bookings.length > 0) {
+          // Send operator to the Accept/Reject screen
+          navigation.navigate("IncomingRequest", { booking: bookings[0] });
+        }
+      });
+    }
+
+    return () => {
+      if (unsubscribeReq) unsubscribeReq();
+    };
+  }, [isOnline, user?.uid, navigation]);
 
   const cardBg = tractorAnim.interpolate({
     inputRange: [0, 1],
@@ -213,7 +240,7 @@ const OperatorDashboard = ({ navigation, route }) => {
               alignItems: "center",
             }}
           >
-            <Text style={styles.cardLabel}>Today's Earnings</Text>
+            <Text style={styles.cardLabel}>Today&apos;s Earnings</Text>
             <MaterialCommunityIcons
               name="arrow-right-circle"
               size={20}
@@ -237,39 +264,29 @@ const OperatorDashboard = ({ navigation, route }) => {
           </View>
         </TouchableOpacity>
 
-        {/* Tractor Toggle Card */}
-        <Animated.View
-          style={[
-            styles.tractorCard,
-            { backgroundColor: cardBg, borderColor: cardBorder },
-          ]}
+        {/* Machine Setup Card */}
+        <TouchableOpacity
+          style={[styles.tractorCard, { backgroundColor: "#FFF5F5", borderColor: "#FFCDD2" }]}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate("OperatorMachineSetup")}
         >
           <View style={styles.tractorCardLeft}>
-            <Animated.Text style={{ marginRight: 12 }}>
-              <FontAwesome5
-                name="tractor"
-                size={20}
-                color={hasTractor ? "#29563A" : "#E53935"}
+            <View style={{ marginRight: 12 }}>
+              <MaterialCommunityIcons
+                name="cogs"
+                size={22}
+                color="#D68C45"
               />
-            </Animated.Text>
-            <Text style={styles.tractorLabel}>Tractor?</Text>
+            </View>
+            <View>
+              <Text style={styles.tractorLabel}>My Machines</Text>
+              <Text style={{ fontSize: 13, color: "#666", marginTop: 2 }}>
+                Configure machines you operate
+              </Text>
+            </View>
           </View>
-          <View style={styles.tractorToggleRow}>
-            <Animated.Text style={[styles.tractorToggleText, { color: noColor }]}>
-              No
-            </Animated.Text>
-            <Switch
-              trackColor={{ false: "#FFCDD2", true: "#A5D6A7" }}
-              thumbColor={hasTractor ? "#29563A" : "#E53935"}
-              onValueChange={setHasTractor}
-              value={hasTractor}
-              style={{ marginHorizontal: 8 }}
-            />
-            <Animated.Text style={[styles.tractorToggleText, { color: yesColor }]}>
-              Yes
-            </Animated.Text>
-          </View>
-        </Animated.View>
+          <MaterialCommunityIcons name="chevron-right" size={24} color="#999" />
+        </TouchableOpacity>
 
         {/* Alerts Section */}
         <Text style={styles.sectionTitle}>Recent Notifications</Text>

@@ -12,6 +12,7 @@ import {
   orderBy,
   limit,
   Timestamp,
+  onSnapshot,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 
@@ -145,4 +146,139 @@ export const getTodayEarnings = async (uid) => {
     console.log("Error getting today earnings:", error);
     return { totalEarnings: 0, totalJobs: 0, totalAcres: 0 };
   }
+};
+
+/**
+ * Update a user's current GPS location
+ */
+export const updateUserLocation = async (uid, location) => {
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, {
+    location: {
+      latitude: location.latitude,
+      longitude: location.longitude,
+      updatedAt: serverTimestamp(),
+    },
+  });
+};
+
+/**
+ * Update the machines an operator owns
+ */
+export const updateOperatorMachines = async (uid, machineIds) => {
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, {
+    machines: machineIds,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+/**
+ * Update the status of a booking (e.g. accepted, headed_to_farm)
+ */
+export const updateBookingStatus = async (bookingId, status, operatorId = null) => {
+  const bookingRef = doc(db, "bookings", bookingId);
+  const updateData = {
+    status,
+    updatedAt: serverTimestamp(),
+  };
+  
+  if (operatorId) {
+    updateData.operatorId = operatorId;
+  }
+  
+  if (status === "completed") {
+    updateData.completedAt = serverTimestamp();
+  }
+  
+  await updateDoc(bookingRef, updateData);
+};
+
+// Haversine distance formula
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
+};
+
+/**
+ * Find nearby available operators who have the requested machine
+ */
+export const findNearbyOperators = async (farmerLocation, radiusKm, machineId) => {
+  try {
+    const usersRef = collection(db, "users");
+    // Filter by role and ensure they have the requested machine
+    const q = query(
+      usersRef, 
+      where("role", "==", "Operator"),
+      where("machines", "array-contains", machineId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const nearbyOperators = [];
+
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      // Must have a recent location
+      if (data.location && data.location.latitude && data.location.longitude) {
+        const distance = calculateDistance(
+          farmerLocation.latitude,
+          farmerLocation.longitude,
+          data.location.latitude,
+          data.location.longitude
+        );
+
+        // If within radius, add to results
+        if (distance <= radiusKm) {
+          nearbyOperators.push({
+            id: docSnap.id,
+            distance,
+            ...data,
+          });
+        }
+      }
+    });
+
+    // Sort by closest first
+    return nearbyOperators.sort((a, b) => a.distance - b.distance);
+  } catch (error) {
+    console.error("Error finding nearby operators:", error);
+    return [];
+  }
+};
+
+/**
+ * Observe incoming unaccepted bookings for an operator
+ */
+export const observeIncomingBookings = (operatorId, callback) => {
+  const bookingsRef = collection(db, "bookings");
+  const q = query(
+    bookingsRef,
+    where("operatorId", "==", operatorId),
+    where("status", "==", "pending_approval")
+  );
+  return onSnapshot(q, (snapshot) => {
+    const bookings = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    callback(bookings);
+  });
+};
+
+/**
+ * Observe a specific booking for real-time status updates
+ */
+export const observeBooking = (bookingId, callback) => {
+  const bookingRef = doc(db, "bookings", bookingId);
+  return onSnapshot(bookingRef, (docSnap) => {
+    if (docSnap.exists()) {
+      callback({ id: docSnap.id, ...docSnap.data() });
+    }
+  });
 };

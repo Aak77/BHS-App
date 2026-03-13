@@ -181,18 +181,44 @@ const BookingConfigScreen = ({ navigation, route }) => {
           onPress={async () => {
             setSaving(true);
             try {
+              // 1. Get real GPS location
+              const { getCurrentLocation } = require("../services/location");
+              const locationData = await getCurrentLocation();
+              
+              if (!locationData) {
+                 Alert.alert("Location Required", "Please enable GPS to find operators near you.");
+                 setSaving(false);
+                 return;
+              }
+
+              const farmerLocation = {
+                latitude: locationData.coords.latitude,
+                longitude: locationData.coords.longitude,
+              };
+
+              // 2. Update user location in DB
+              const { updateUserLocation } = require("../services/firestore");
+              await updateUserLocation(farmerId, farmerLocation);
+
+              // 3. Create booking
               const bookingId = await createBooking({
                 farmerId,
                 farmerName,
                 farmerPhone,
                 machineType: selectedMachine.name,
-                machineId: selectedMachine.id,
+                machineId: selectedMachine.id, // For easy Haversine matching
                 acres,
                 pricePerAcre: selectedMachine.price,
                 totalPrice: selectedMachine.price * acres,
-                location: "Near Panvel, Maharashtra",
+                location: "Detected via GPS",
+                coordinates: farmerLocation,
               });
-              navigation.navigate("SearchingOperator", { bookingId });
+              
+              navigation.navigate("SearchingOperator", {
+                 bookingId,
+                 machineId: selectedMachine.id,
+                 farmerLocation,
+              });
             } catch (error) {
               console.log("Error creating booking:", error);
               Alert.alert("Error", "Failed to create booking. Please try again.");

@@ -40,7 +40,7 @@ const OTPScreen = ({ route, navigation }) => {
         createdAt: new Date().toISOString(),
       };
 
-      // 3. If NOT dev mode, do Firestore/Storage operations
+      // 3. Do Storage operations (License Upload) if NOT dev mode
       if (!DEV_MODE) {
         // Upload license for operators
         if (role === "Operator" && licenseImage) {
@@ -56,17 +56,18 @@ const OTPScreen = ({ route, navigation }) => {
             profileData.licenseVerified = false;
           }
         }
-        // Save profile to Firestore
-        await createUserProfile(uid, profileData);
       } else {
-        // Dev mode: just add license info to profile data locally
+        // Dev mode: just add license info to profile data locally, skipping image upload
         if (role === "Operator") {
           profileData.licenseNumber = licenseNumber || "";
           profileData.licenseImageURL = null;
           profileData.licenseVerified = false;
         }
-        console.log("[DEV MODE] Skipping Firestore/Storage — saving locally only");
+        console.log("[DEV MODE] Skipping Storage for license image");
       }
+
+      // Save profile to Firestore regardless of DEV_MODE so the user exists in DB
+      await createUserProfile(uid, profileData);
 
       // 4. Set session in AuthContext (persists to AsyncStorage)
       await setSession(

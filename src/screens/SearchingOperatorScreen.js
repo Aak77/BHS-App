@@ -3,8 +3,11 @@ import React, { useEffect, useState } from 'react';
 import { Animated, Easing, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { fetchActiveOperators } from '../services/socket';
 
-const SearchingOperatorScreen = ({ navigation }) => {
+const SearchingOperatorScreen = ({ navigation, route }) => {
   const spinValue = new Animated.Value(0);
+  const { farmerLocation, machineId, bookingId } = route.params || {};
+  const [assignedOperator, setAssignedOperator] = useState(null);
+  const [requested, setRequested] = useState(false);
 
   useEffect(() => {
     // Start spinning animation
@@ -21,13 +24,22 @@ const SearchingOperatorScreen = ({ navigation }) => {
     
     const searchForOperators = async () => {
       try {
-        const operators = await fetchActiveOperators();
+        if (!farmerLocation || !machineId || requested) return;
+
+        const { findNearbyOperators, updateBookingStatus } = require("../services/firestore");
+        // Search within 15 km radius
+        const operators = await findNearbyOperators(farmerLocation, 15, machineId);
+        
         if (operators && operators.length > 0) {
-          // Found an operator! Wait 1.5 seconds for visual effect then navigate
+          const matchedOperator = operators[0];
           clearInterval(searchInterval);
-          setTimeout(() => {
-            navigation.replace('OperatorFound', { operator: operators[0] });
-          }, 1500);
+          setRequested(true);
+          
+          // Assign the booking to this operator in DB as pending approval
+          if (bookingId) {
+            await updateBookingStatus(bookingId, "pending_approval", matchedOperator.id);
+            setAssignedOperator(matchedOperator);
+          }
         }
       } catch (err) {
         console.log("Error finding operators:", err);
@@ -35,13 +47,41 @@ const SearchingOperatorScreen = ({ navigation }) => {
     };
 
     // Initial check
-    searchForOperators();
-
-    // Poll every 3 seconds
-    searchInterval = setInterval(searchForOperators, 3000);
+    if (!requested) {
+       searchForOperators();
+       // Poll every 3 seconds until requested
+       searchInterval = setInterval(searchForOperators, 3000);
+    }
 
     return () => clearInterval(searchInterval);
-  }, [navigation]);
+  }, [farmerLocation, machineId, requested, bookingId]);
+
+  // Dedicated real-time booking listener for Accept/Reject
+  useEffect(() => {
+    let unsubscribeBooking = null;
+    if (requested && bookingId && assignedOperator) {
+      const { observeBooking } = require("../services/firestore");
+      unsubscribeBooking = observeBooking(bookingId, (booking) => {
+         if (booking.status === "accepted") {
+            // Wait 1 sec for visual effect then navigate directly to live tracking
+            setTimeout(() => {
+              navigation.replace('JobTracking', { 
+                operatorName: assignedOperator?.name || "Operator",
+                bookingId 
+              });
+            }, 1000);
+         } else if (booking.status === "rejected") {
+            // Operator rejected. Restart search!
+            setRequested(false);
+            setAssignedOperator(null);
+         }
+      });
+    }
+
+    return () => {
+       if (unsubscribeBooking) unsubscribeBooking();
+    };
+  }, [requested, bookingId, assignedOperator, navigation]);
 
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
