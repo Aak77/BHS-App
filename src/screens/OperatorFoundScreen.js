@@ -13,8 +13,12 @@ import {
   View,
 } from "react-native";
 
-const OperatorFoundScreen = ({ navigation }) => {
+const OperatorFoundScreen = ({ navigation, route }) => {
+  const { operator } = route.params || {};
   const [isBooking, setIsBooking] = useState(false);
+  
+  // Use the fetched operator name, fallback to placeholder if testing purely UI
+  const operatorName = operator?.name || "Harjinder Kaur";
 
   const handleBookOperator = () => {
     setIsBooking(true);
@@ -22,8 +26,11 @@ const OperatorFoundScreen = ({ navigation }) => {
     // Simulate a 2-second network request to send the booking
     setTimeout(() => {
       setIsBooking(false);
-      // This will navigate to the live tracking map we build next!
-      navigation.navigate("JobTracking");
+      // Navigate to the live tracking map with simulated job data
+      navigation.navigate("JobTracking", {
+        bookingId: `BK-${Date.now()}`,
+        operatorName: operatorName
+      });
     }, 2000);
   };
 
@@ -42,7 +49,7 @@ const OperatorFoundScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.operatorInfo}>
-              <Text style={styles.operatorName}>Harjinder Kaur</Text>
+              <Text style={styles.operatorName}>{operatorName}</Text>
 
               <View style={styles.ratingRow}>
                 <Ionicons name="star" size={14} color="#D68C45" />

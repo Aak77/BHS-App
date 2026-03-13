@@ -1,6 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -8,6 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useAuth } from "../context/AuthContext";
+import { createBooking } from "../services/firestore";
 
 const MACHINES = [
   {
@@ -69,12 +73,17 @@ const MACHINES = [
 ];
 
 const BookingConfigScreen = ({ navigation, route }) => {
+  const { user } = useAuth();
   const machineType = route.params?.machineType;
+  const farmerId = route.params?.farmerId || user?.uid;
+  const farmerName = route.params?.farmerName || "";
+  const farmerPhone = route.params?.farmerPhone || "";
   const defaultMachine =
     MACHINES.find((m) => m.name === machineType) || MACHINES[0];
 
   const [selectedMachine, setSelectedMachine] = useState(defaultMachine);
   const [acres, setAcres] = useState(3);
+  const [saving, setSaving] = useState(false);
 
   const incrementAcres = () => {
     if (acres < 50) setAcres(acres + 1);
@@ -168,10 +177,36 @@ const BookingConfigScreen = ({ navigation, route }) => {
         </View>
 
         <TouchableOpacity
-          style={styles.findBtn}
-          onPress={() => navigation.navigate("SearchingOperator")}
+          style={[styles.findBtn, saving && { opacity: 0.7 }]}
+          onPress={async () => {
+            setSaving(true);
+            try {
+              const bookingId = await createBooking({
+                farmerId,
+                farmerName,
+                farmerPhone,
+                machineType: selectedMachine.name,
+                machineId: selectedMachine.id,
+                acres,
+                pricePerAcre: selectedMachine.price,
+                totalPrice: selectedMachine.price * acres,
+                location: "Near Panvel, Maharashtra",
+              });
+              navigation.navigate("SearchingOperator", { bookingId });
+            } catch (error) {
+              console.log("Error creating booking:", error);
+              Alert.alert("Error", "Failed to create booking. Please try again.");
+            } finally {
+              setSaving(false);
+            }
+          }}
+          disabled={saving}
         >
-          <Text style={styles.findBtnText}>Find Operators Nearby →</Text>
+          {saving ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.findBtnText}>Find Operators Nearby →</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

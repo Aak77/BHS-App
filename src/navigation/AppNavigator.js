@@ -14,6 +14,7 @@ import OperatorLoginScreen from "../screens/OperatorLoginScreen";
 import OTPScreen from "../screens/OTPScreen";
 import RoleSelectionScreen from "../screens/RoleSelectionScreen";
 import SearchingOperatorScreen from "../screens/SearchingOperatorScreen";
+import JobTrackingScreen from "../screens/JobTrackingScreen";
 import SplashScreen from "../screens/SplashScreen";
 import SupportScreen from "../screens/SupportScreen";
 
@@ -38,6 +39,7 @@ export default function AppNavigator() {
         component={SearchingOperatorScreen}
       />
       <Stack.Screen name="OperatorFound" component={OperatorFoundScreen} />
+      <Stack.Screen name="JobTracking" component={JobTrackingScreen} />
 
       {/* Operator Flow */}
       <Stack.Screen name="OperatorDashboard" component={OperatorDashboard} />

@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, Easing, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { fetchActiveOperators } from '../services/socket';
 
 const SearchingOperatorScreen = ({ navigation }) => {
   const spinValue = new Animated.Value(0);
@@ -16,12 +17,30 @@ const SearchingOperatorScreen = ({ navigation }) => {
       })
     ).start();
 
-    // Simulate a 3.5-second search before finding an operator
-    const timer = setTimeout(() => {
-      navigation.navigate('OperatorFound'); 
-    }, 3500);
+    let searchInterval;
+    
+    const searchForOperators = async () => {
+      try {
+        const operators = await fetchActiveOperators();
+        if (operators && operators.length > 0) {
+          // Found an operator! Wait 1.5 seconds for visual effect then navigate
+          clearInterval(searchInterval);
+          setTimeout(() => {
+            navigation.replace('OperatorFound', { operator: operators[0] });
+          }, 1500);
+        }
+      } catch (err) {
+        console.log("Error finding operators:", err);
+      }
+    };
 
-    return () => clearTimeout(timer);
+    // Initial check
+    searchForOperators();
+
+    // Poll every 3 seconds
+    searchInterval = setInterval(searchForOperators, 3000);
+
+    return () => clearInterval(searchInterval);
   }, [navigation]);
 
   const spin = spinValue.interpolate({

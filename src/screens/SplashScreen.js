@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Dimensions, StyleSheet, View } from "react-native";
+import { useAuth } from "../context/AuthContext";
 
 const { width } = Dimensions.get("window");
 
 const SplashScreen = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const { user, userProfile, loading } = useAuth();
 
   useEffect(() => {
     Animated.parallel([
@@ -20,11 +22,36 @@ const SplashScreen = ({ navigation }) => {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      setTimeout(() => {
-        navigation.replace("RoleSelection");
-      }, 1000);
+      // Wait for auth to finish loading
+      if (loading) return;
+      navigateBasedOnAuth();
     });
   }, []);
+
+  // Re-check when loading state changes
+  useEffect(() => {
+    if (!loading) {
+      navigateBasedOnAuth();
+    }
+  }, [loading]);
+
+  const navigateBasedOnAuth = () => {
+    if (user && userProfile) {
+      // User is signed in and has a profile — go to their dashboard
+      if (userProfile.role === "Operator") {
+        navigation.replace("OperatorDashboard", {
+          userName: userProfile.name,
+        });
+      } else {
+        navigation.replace("FarmerBooking", {
+          userName: userProfile.name,
+        });
+      }
+    } else {
+      // Not signed in or no profile — go to role selection
+      navigation.replace("RoleSelection");
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -46,11 +73,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  logo: { 
-    width: width * 1.2, 
-    height: width * 1.2, 
+  logo: {
+    width: width * 1.2,
+    height: width * 1.2,
     resizeMode: "contain",
-    backgroundColor: "#FFFFFF" 
+    backgroundColor: "#FFFFFF",
   },
 });
 

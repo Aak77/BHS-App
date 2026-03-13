@@ -4,7 +4,7 @@ import {
   Ionicons,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Modal,
   SafeAreaView,
@@ -15,6 +15,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { useAuth } from "../context/AuthContext";
+import { getBookingStats } from "../services/firestore";
 
 const MACHINE_TYPES = [
   "Happy Seeder",
@@ -27,16 +29,44 @@ const MACHINE_TYPES = [
 ];
 
 const FarmerBookingScreen = ({ navigation, route }) => {
-  const userName = route.params?.userName || "Guest";
+  const { user, userProfile, signOut } = useAuth();
+  const userName = route.params?.userName || userProfile?.name || "Guest";
+  const userPhone = userProfile?.phone || "N/A";
+
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [stats, setStats] = useState({ totalBookings: 0, totalAcres: 0 });
+
+  // Load booking stats from Firestore
+  useEffect(() => {
+    const loadStats = async () => {
+      if (user?.uid) {
+        const bookingStats = await getBookingStats(user.uid);
+        setStats(bookingStats);
+      }
+    };
+    loadStats();
+  }, [user]);
 
   const handleBookNow = () => {
     if (!selectedMachine) {
       alert("Please select a machine type first");
       return;
     }
-    navigation.navigate("BookingConfig", { machineType: selectedMachine });
+    navigation.navigate("BookingConfig", {
+      machineType: selectedMachine,
+      farmerId: user?.uid,
+      farmerName: userName,
+      farmerPhone: userPhone,
+    });
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Splash" }],
+    });
   };
 
   return (
@@ -46,11 +76,11 @@ const FarmerBookingScreen = ({ navigation, route }) => {
         <View style={styles.header}>
           <View>
             <Text style={styles.userName}>{userName}</Text>
-            <Text style={styles.userPhone}>+91 9876543210</Text>
+            <Text style={styles.userPhone}>+91 {userPhone}</Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.profileIcon}
-            onPress={() => navigation.navigate("RoleSelection")}
+            onPress={handleLogout}
           >
             <Feather name="log-out" size={20} color="#FFFFFF" />
           </TouchableOpacity>
@@ -60,30 +90,18 @@ const FarmerBookingScreen = ({ navigation, route }) => {
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
             <MaterialCommunityIcons name="sprout" size={24} color="#29563A" />
-            <Text style={styles.statNumber}>3</Text>
+            <Text style={styles.statNumber}>{stats.totalBookings}</Text>
             <Text style={styles.statLabel}>Bookings</Text>
           </View>
 
           <View style={styles.statBox}>
             <MaterialCommunityIcons name="texture" size={24} color="#29563A" />
-            <Text style={styles.statNumber}>24</Text>
+            <Text style={styles.statNumber}>{stats.totalAcres}</Text>
             <Text style={styles.statLabel}>Acres Done</Text>
           </View>
         </View>
 
-        {/* Active Operator Tracking */}
-        <View style={styles.trackingCard}>
-          <View style={styles.trackingLeft}>
-            <FontAwesome5 name="tractor" size={20} color="#D68C45" />
-            <View style={styles.trackingText}>
-              <Text style={styles.trackingTitle}>Operator on the way!</Text>
-              <Text style={styles.trackingSub}>Baldev Kumar • 35 min</Text>
-            </View>
-          </View>
-          <TouchableOpacity onPress={() => navigation.navigate("JobTracking")}>
-            <Text style={styles.trackButton}>Track →</Text>
-          </TouchableOpacity>
-        </View>
+
 
         {/* Main Booking Card with Machine Dropdown */}
         <View style={styles.bookCard}>

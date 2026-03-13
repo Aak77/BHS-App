@@ -1,37 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
-} from 'react-native';
+  View,
+} from "react-native";
+import { sendOTP } from "../services/auth";
 
 const AuthScreen = ({ navigation }) => {
-  const [name, setName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [name, setName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSendOTP = () => {
+  const handleSendOTP = async () => {
     if (!name.trim()) {
-      alert('Please enter your name');
+      alert("Please enter your name");
       return;
     }
-    if (phoneNumber.length === 10) {
-      navigation.navigate('OTP', { phone: phoneNumber, userName: name });
-    } else {
-      alert('Please enter a valid 10-digit number');
+    if (phoneNumber.length !== 10) {
+      alert("Please enter a valid 10-digit number");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const verificationId = await sendOTP(phoneNumber);
+      navigation.navigate("OTP", {
+        phone: phoneNumber,
+        userName: name,
+        verificationId,
+        role: "Farmer",
+      });
+    } catch (error) {
+      console.log("Error:", error);
+      Alert.alert("Error", "Failed to send OTP: " + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const isValid = name.trim() && phoneNumber.length === 10;
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
+
       <View style={styles.inner}>
         <Text style={styles.title}>Farmer Login</Text>
         <Text style={styles.subtitle}>Enter your details to continue</Text>
@@ -61,54 +81,72 @@ const AuthScreen = ({ navigation }) => {
         </View>
 
         <TouchableOpacity
-          style={[styles.button, !isValid && styles.buttonDisabled]}
+          style={[styles.button, (!isValid || loading) && styles.buttonDisabled]}
           onPress={handleSendOTP}
-          disabled={!isValid}
+          disabled={!isValid || loading}
         >
-          <Text style={styles.buttonText}>Get OTP</Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Get OTP</Text>
+          )}
         </TouchableOpacity>
+        
+        {/* Invisible ReCAPTCHA container for Web */}
+        <View nativeID="recaptcha-container" />
       </View>
     </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F1F8E9' },
-  inner: { flex: 1, justifyContent: 'center', padding: 24 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#1B5E20', marginBottom: 8 },
-  subtitle: { fontSize: 16, color: '#666', marginBottom: 24 },
-  label: { fontSize: 15, fontWeight: '600', color: '#333', marginBottom: 8, marginTop: 4 },
+  container: { flex: 1, backgroundColor: "#F1F8E9" },
+  inner: { flex: 1, justifyContent: "center", padding: 24 },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#1B5E20",
+    marginBottom: 8,
+  },
+  subtitle: { fontSize: 16, color: "#666", marginBottom: 24 },
+  label: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+    marginTop: 4,
+  },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: '#C8E6C9',
+    borderColor: "#C8E6C9",
     borderRadius: 12,
     paddingHorizontal: 15,
     marginBottom: 20,
     height: 56,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
   },
-  prefix: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  input: { flex: 1, fontSize: 18, height: '100%' },
-  inputFull: { flex: 1, fontSize: 16, height: '100%', color: '#333' },
+  prefix: { fontSize: 18, fontWeight: "bold", color: "#333" },
+  input: { flex: 1, fontSize: 18, height: "100%" },
+  inputFull: { flex: 1, fontSize: 16, height: "100%", color: "#333" },
   button: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: "#2E7D32",
     height: 56,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     elevation: 3,
     marginTop: 8,
   },
   buttonDisabled: {
-    backgroundColor: '#A5D6A7',
+    backgroundColor: "#A5D6A7",
   },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  buttonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
 });
 
 export default AuthScreen;

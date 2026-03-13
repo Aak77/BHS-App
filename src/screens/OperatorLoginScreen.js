@@ -3,6 +3,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -15,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { sendOTP, DEV_MODE } from "../services/auth";
 
 const OperatorLoginScreen = ({ navigation }) => {
   const [name, setName] = useState("");
@@ -23,6 +25,7 @@ const OperatorLoginScreen = ({ navigation }) => {
   const [licenseImage, setLicenseImage] = useState(null);
   const [licenseFileType, setLicenseFileType] = useState(null);
   const [licenseFileName, setLicenseFileName] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const pickDocument = async () => {
     try {
@@ -72,7 +75,7 @@ const OperatorLoginScreen = ({ navigation }) => {
     ]);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!name.trim()) {
       Alert.alert("Missing Info", "Please enter your name.");
       return;
@@ -85,23 +88,39 @@ const OperatorLoginScreen = ({ navigation }) => {
       Alert.alert("Missing Info", "Please enter your license number.");
       return;
     }
-    if (!licenseImage) {
+    if (!licenseImage && !DEV_MODE) {
       Alert.alert("Missing Info", "Please upload your license image.");
       return;
     }
 
-    navigation.navigate("OperatorDashboard", {
-      userName: name,
-      phone: phoneNumber,
-      licenseNumber: licenseNumber,
-      licenseImage: licenseImage,
-    });
+    setLoading(true);
+    try {
+      const verificationId = await sendOTP(phoneNumber);
+      navigation.navigate("OTP", {
+        phone: phoneNumber,
+        userName: name,
+        verificationId,
+        role: "Operator",
+        licenseNumber: licenseNumber,
+        licenseImage: licenseImage,
+      });
+    } catch (error) {
+      console.log("Error:", error);
+      Alert.alert("Error", "Failed to send OTP: " + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const isFormValid = name.trim() && phoneNumber.length === 10 && licenseNumber.trim() && licenseImage;
+  const isFormValid =
+    name.trim() &&
+    phoneNumber.length === 10 &&
+    licenseNumber.trim() &&
+    (licenseImage || DEV_MODE);
 
   return (
     <SafeAreaView style={styles.safeArea}>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}
@@ -183,7 +202,9 @@ const OperatorLoginScreen = ({ navigation }) => {
           </View>
 
           {/* License Upload */}
-          <Text style={styles.label}>License Upload</Text>
+          <Text style={styles.label}>
+            License Upload {DEV_MODE ? "(Optional in Dev Mode)" : ""}
+          </Text>
           <TouchableOpacity
             style={styles.uploadContainer}
             onPress={handleUploadPress}
@@ -191,10 +212,36 @@ const OperatorLoginScreen = ({ navigation }) => {
           >
             {licenseImage ? (
               <View style={styles.imagePreviewContainer}>
-                {(licenseFileType && licenseFileType.includes("pdf")) || (licenseFileName && licenseFileName.toLowerCase().endsWith(".pdf")) ? (
-                  <View style={[styles.imagePreview, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#EBF3EC', borderWidth: 1, borderColor: '#C8E6C9' }]}>
-                    <MaterialCommunityIcons name="file-pdf-box" size={64} color="#D32F2F" />
-                    <Text style={{ marginTop: 12, color: '#29563A', fontWeight: 'bold', paddingHorizontal: 20, textAlign: 'center' }} numberOfLines={2}>
+                {(licenseFileType && licenseFileType.includes("pdf")) ||
+                (licenseFileName &&
+                  licenseFileName.toLowerCase().endsWith(".pdf")) ? (
+                  <View
+                    style={[
+                      styles.imagePreview,
+                      {
+                        justifyContent: "center",
+                        alignItems: "center",
+                        backgroundColor: "#EBF3EC",
+                        borderWidth: 1,
+                        borderColor: "#C8E6C9",
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="file-pdf-box"
+                      size={64}
+                      color="#D32F2F"
+                    />
+                    <Text
+                      style={{
+                        marginTop: 12,
+                        color: "#29563A",
+                        fontWeight: "bold",
+                        paddingHorizontal: 20,
+                        textAlign: "center",
+                      }}
+                      numberOfLines={2}
+                    >
                       {licenseFileName || "PDF Document Selected"}
                     </Text>
                   </View>
@@ -229,9 +276,7 @@ const OperatorLoginScreen = ({ navigation }) => {
                     color="#29563A"
                   />
                 </View>
-                <Text style={styles.uploadText}>
-                  Upload License Image
-                </Text>
+                <Text style={styles.uploadText}>Upload License Image</Text>
                 <Text style={styles.uploadSubText}>
                   Take a photo or choose from gallery
                 </Text>
@@ -243,14 +288,21 @@ const OperatorLoginScreen = ({ navigation }) => {
           <TouchableOpacity
             style={[
               styles.continueButton,
-              !isFormValid && styles.disabledButton,
+              (!isFormValid || loading) && styles.disabledButton,
             ]}
             onPress={handleContinue}
-            disabled={!isFormValid}
+            disabled={!isFormValid || loading}
             activeOpacity={0.8}
           >
-            <Text style={styles.continueText}>Continue →</Text>
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.continueText}>Continue →</Text>
+            )}
           </TouchableOpacity>
+          
+          {/* Invisible ReCAPTCHA container for Web */}
+          <View nativeID="recaptcha-container" />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

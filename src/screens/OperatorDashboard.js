@@ -10,8 +10,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useAuth } from "../context/AuthContext";
+import { getTodayEarnings } from "../services/firestore";
+import { connectSocket, disconnectSocket, socket } from "../services/socket";
+import { startWatchingLocation, stopWatchingLocation } from "../services/location";
 
 const OperatorDashboard = ({ navigation, route }) => {
+  const { user, userProfile, signOut } = useAuth();
   const [isOnline, setIsOnline] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [hasTractor, setHasTractor] = useState(
@@ -36,13 +41,42 @@ const OperatorDashboard = ({ navigation, route }) => {
     }).start();
   }, [hasTractor]);
 
-  // Handle online toggle: show 1s searching animation
-  const handleOnlineToggle = () => {
+  // Store location subscription so we can cancel it later
+  const [locationSub, setLocationSub] = useState(null);
+
+  // Clean up socket and location tracking on unmount
+  useEffect(() => {
+    return () => {
+      if (locationSub) stopWatchingLocation(locationSub);
+      disconnectSocket();
+    };
+  }, [locationSub]);
+
+  // Handle online toggle: connect socket, get location, start broadcasting
+  const handleOnlineToggle = async () => {
     const goingOnline = !isOnline;
     setIsOnline(goingOnline);
+
     if (goingOnline) {
       setIsSearching(true);
-      // Looping pulse while searching
+      
+      // 1. Connect to backend socket
+      connectSocket();
+      socket.emit("operator:online", { uid: user.uid, name: userName });
+
+      // 2. Start tracking GPS location
+      const sub = await startWatchingLocation((location) => {
+        // Broadcast location to server every time it changes
+        socket.emit("operator:location_update", {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          heading: location.coords.heading || 0,
+          speed: location.coords.speed || 0,
+        });
+      });
+      setLocationSub(sub);
+
+      // Looping pulse while searching setup
       const pulse = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, { toValue: 1.15, duration: 500, useNativeDriver: true }),
@@ -54,6 +88,8 @@ const OperatorDashboard = ({ navigation, route }) => {
       );
       pulse.start();
       dots.start();
+      
+      // Keep searching anim for 1.5s then show default online state
       setTimeout(() => {
         pulse.stop();
         dots.stop();
@@ -61,6 +97,15 @@ const OperatorDashboard = ({ navigation, route }) => {
         dotAnim.setValue(0);
         setIsSearching(false);
       }, 1500);
+
+    } else {
+      // Going Offline
+      setIsSearching(false);
+      if (locationSub) {
+        stopWatchingLocation(locationSub);
+        setLocationSub(null);
+      }
+      disconnectSocket();
     }
   };
 
@@ -86,7 +131,20 @@ const OperatorDashboard = ({ navigation, route }) => {
   });
 
   // Grab the passed name
-  const userName = route.params?.userName || "Operator";
+  const userName = route.params?.userName || userProfile?.name || "Operator";
+
+  // Earnings from Firestore
+  const [earnings, setEarnings] = useState({ totalEarnings: 0, totalJobs: 0, totalAcres: 0 });
+
+  useEffect(() => {
+    const loadEarnings = async () => {
+      if (user?.uid) {
+        const data = await getTodayEarnings(user.uid);
+        setEarnings(data);
+      }
+    };
+    loadEarnings();
+  }, [user]);
 
   // Time-based greeting
   const getGreeting = () => {
@@ -94,6 +152,14 @@ const OperatorDashboard = ({ navigation, route }) => {
     if (hour >= 5 && hour < 12) return "Good Morning,";
     if (hour >= 12 && hour < 17) return "Good Afternoon,";
     return "Good Evening,";
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Splash" }],
+    });
   };
 
   return (
@@ -110,7 +176,7 @@ const OperatorDashboard = ({ navigation, route }) => {
             <Text style={styles.opName}>{userName}</Text>
             <TouchableOpacity 
               style={styles.logoutButton} 
-              onPress={() => navigation.navigate("RoleSelection")}
+              onPress={handleLogout}
             >
               <MaterialCommunityIcons name="logout" size={16} color="#E53935" />
               <Text style={styles.logoutText}>Logout</Text>
@@ -154,11 +220,11 @@ const OperatorDashboard = ({ navigation, route }) => {
               color="#A3C4A8"
             />
           </View>
-          <Text style={styles.amountText}>₹4,500</Text>
+          <Text style={styles.amountText}>₹{earnings.totalEarnings.toLocaleString()}</Text>
           <View style={styles.statsRow}>
             <View style={styles.miniStat}>
               <FontAwesome5 name="tractor" size={14} color="#A3C4A8" />
-              <Text style={styles.miniStatText}>2 Jobs</Text>
+              <Text style={styles.miniStatText}>{earnings.totalJobs} Jobs</Text>
             </View>
             <View style={styles.miniStat}>
               <MaterialCommunityIcons
@@ -166,7 +232,7 @@ const OperatorDashboard = ({ navigation, route }) => {
                 size={16}
                 color="#A3C4A8"
               />
-              <Text style={styles.miniStatText}>12 Acres</Text>
+              <Text style={styles.miniStatText}>{earnings.totalAcres} Acres</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -252,25 +318,19 @@ const OperatorDashboard = ({ navigation, route }) => {
             </Text>
           </View>
         ) : (
-          <TouchableOpacity
-            style={styles.alertCard}
-            onPress={() => navigation.navigate("IncomingRequest")}
-          >
-            <View style={styles.alertHeader}>
-              <View style={styles.newBadge}>
-                <Text style={styles.newText}>NEW REQUEST</Text>
-              </View>
-              <Text style={styles.timeText}>Just now</Text>
-            </View>
-            <Text style={styles.farmerName}>Rajesh Kumar</Text>
-            <Text style={styles.jobDetail}>
-              Happy Seeder • 5 Acres • Panvel
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons
+              name="radar"
+              size={48}
+              color="#29563A"
+            />
+            <Text style={[styles.emptyText, { color: "#29563A", fontWeight: "bold" }]}>
+              You are Online!
             </Text>
-            <View style={styles.alertFooter}>
-              <Text style={styles.priceEstimate}>Est. Earnings: ₹2,200</Text>
-              <Text style={styles.viewTask}>Tap to View →</Text>
-            </View>
-          </TouchableOpacity>
+            <Text style={styles.emptyText}>
+              Waiting for nearby seeding jobs...
+            </Text>
+          </View>
         )}
 
         {/* Contact Support Button */}
